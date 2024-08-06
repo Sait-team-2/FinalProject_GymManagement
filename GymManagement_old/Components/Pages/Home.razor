@@ -1,0 +1,19 @@
+﻿@page "/"
+@using GymManagement.Components
+@inject NavigationManager NavigationManager
+
+<PageTitle>Gym Management</PageTitle>
+
+<h3>Gym Management</h3>
+
+<button @onclick="NavigateToManageClients">Manage Clients</button>
+<button @onclick="NavigateToManageBookings">Manage Bookings and Reservations</button>
+<button @onclick="NavigateToManageEquipments">Manage Equipments</button>
+
+@code {
+    private void NavigateToManageClients() => NavigationManager.NavigateTo("/manage-clients");
+
+    private void NavigateToManageBookings() => NavigationManager.NavigateTo("/manage-bookings");
+
+    private void NavigateToManageEquipments() => NavigationManager.NavigateTo("/manage-equipments");
+}

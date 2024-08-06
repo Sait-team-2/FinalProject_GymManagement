@@ -1,16 +1,192 @@
 ﻿@page "/manage-equipments"
-@inject GymManagement.Services.EquipmentService EquipmentService
+@using GymManagement.Data
+@inject Data.BookingService BookingService
+@inject Data.ClientService ClientService
+@inject Data.EquipmentService EquipmentService
+
+<link href="./css/gymManagement.css" rel="stylesheet" />
 
 <PageTitle>Manage Equipments</PageTitle>
 
 <h3>Manage Equipments</h3>
 
-<!-- UI elements for managing equipments -->
-@code {
-    private List<GymManagement.Models.Equipment> equipments;
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
 
-    protected override void OnInitialized()
+@if (equipments == null || !equipments.Any())
+{
+    <div class="alert alert-info">No equipments found.</div>
+}
+else
+{
+    <table class="clients-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Last Maintenance Date</th>
+                <th>Description</th>
+                <th>Cost Per Day</th>
+                <th>Image</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var equipment in equipments)
+            {
+                <tr>
+                    <td>@equipment.Name</td>
+                    <td>@equipment.Type</td>
+                    <td>@equipment.LastMaintenanceDate.ToShortDateString()</td>
+                    <td>@equipment.Description</td>
+                    <td>@equipment.CostPerDay</td>
+                    <td><img src="@equipment.ImageUrl" alt="Equipment Image" width="50" height="50" /></td>
+                    <td>
+                        <button @onclick="() => EditEquipment(equipment)" class="btn btn-warning">Edit</button>
+                        <button @onclick="() => DeleteEquipment(equipment.Id)" class="btn btn-sm btn-danger">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+<hr />
+<h3>@(isEditMode ? "Edit Equipment" : "Add Equipment")</h3>
+<EditForm Model="@newEquipment" OnValidSubmit="SaveEquipment">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="flex-container">
+        <div class="flex-item">
+            <label>Name:</label>
+            <input type="text" @bind="newEquipment.Name" required />
+
+            <label>Type:</label>
+            <select @bind="newEquipment.Type" required>
+                <option value="">Select Type</option>
+                <option value="Cardio">Cardio</option>
+                <option value="Strength">Strength</option>
+                <option value="Flexibility">Flexibility</option>
+                <option value="Balance">Balance</option>
+            </select>
+
+            <label>Last Maintenance Date:</label>
+            <input type="date" @bind="newEquipment.LastMaintenanceDate" />
+
+            <label>Description:</label>
+            <textarea @bind="newEquipment.Description"></textarea>
+
+            <label>Cost Per Day:</label>
+            <input type="number" @bind="newEquipment.CostPerDay" min="1" required />
+
+            <label>Image URL:</label>
+            <InputFile OnChange="OnInputFileChange" />
+        </div>
+    </div>
+    <div class="flex-container">
+        <div class="flex-row">
+            <button type="submit">@(isEditMode ? "Update Equipment" : "Add Equipment")</button>
+            @if (isEditMode)
+            {
+                <button type="button" @onclick="CancelEdit">Cancel</button>
+            }
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    private List<Equipment> equipments = new List<Equipment>();
+    private string errorMessage = string.Empty;
+    private Equipment newEquipment = new Equipment
+        {
+            LastMaintenanceDate = DateTime.Today
+        };
+    private bool isEditMode = false;
+
+    protected override async Task OnInitializedAsync()
     {
-        equipments = EquipmentService.GetAllEquipments();
+        try
+        {
+            equipments = await EquipmentService.GetAllEquipmentsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading equipments: {ex.Message}";
+        }
+    }
+
+    private async Task SaveEquipment()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                await EquipmentService.UpdateEquipmentAsync(newEquipment);
+            }
+            else
+            {
+                await EquipmentService.AddEquipmentAsync(newEquipment);
+            }
+
+            equipments = await EquipmentService.GetAllEquipmentsAsync();
+            ResetForm();
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving equipment: {ex.Message}";
+        }
+    }
+
+    private void EditEquipment(Equipment equipment)
+    {
+        newEquipment = new Equipment
+            {
+                Id = equipment.Id,
+                Name = equipment.Name,
+                Type = equipment.Type,
+                LastMaintenanceDate = equipment.LastMaintenanceDate,
+                Description = equipment.Description,
+                CostPerDay = equipment.CostPerDay,
+                ImageUrl = equipment.ImageUrl
+            };
+        isEditMode = true;
+    }
+
+    private void CancelEdit()
+    {
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        newEquipment = new Equipment
+            {
+                LastMaintenanceDate = DateTime.Today
+            };
+        isEditMode = false;
+    }
+
+    private async Task DeleteEquipment(int equipmentId)
+    {
+        try
+        {
+            await EquipmentService.RemoveEquipmentAsync(equipmentId);
+            equipments = await EquipmentService.GetAllEquipmentsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting equipment: {ex.Message}";
+        }
+    }
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        var buffer = new byte[file.Size];
+        await file.OpenReadStream().ReadAsync(buffer);
+        var base64Image = Convert.ToBase64String(buffer);
+        newEquipment.ImageUrl = $"data:image/png;base64,{base64Image}";
     }
 }

@@ -1,89 +1,159 @@
 ﻿@page "/manage-clients"
-@inject GymManagement.Services.ClientService ClientService
+@inject GymManagement.Data.ClientService ClientService
+@inject NavigationManager Navigation
+
+@using Microsoft.AspNetCore.WebUtilities
+
+<link href="./css/gymManagement.css" rel="stylesheet" />
 
 <PageTitle>Manage Clients</PageTitle>
 
-<h3>Manage Clients</h3>
+<h2>Manage Clients</h2>
 
 <!-- Search Section -->
-<div>
-    <input type="text" @bind="searchText" placeholder="Search clients..." />
-    <button @onclick="SearchClients">Search</button>
+<div class="search-section">
+    <input type="text" @bind="searchText" placeholder="Search clients..." class="search-input" />
+    <button @onclick="SearchClients" class="search-button">Search</button>
 </div>
-
+<hr />
 <!-- Client Form -->
-<div>
-    <label>First Name:</label>
-    <input type="text" @bind="newClient.FirstName" />
+<h3>Add Membership:</h3>
+@if (!string.IsNullOrEmpty(errormessage))
+{
+    <div class="alert alert-danger">@errormessage</div>
+}
+@if (filteredClients == null || !filteredClients.Any())
+{
+    <div class="alert alert-info">No records found.</div>
+}
+else
+{
+    <table class="clients-table">
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Email</th>
+                <th>Contact Number</th>
+                <th>Notes</th>
+                <th>Date of Birth</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in filteredClients)
+            {
+                <tr>
+                    <td>@item.FirstName</td>
+                    <td>@item.LastName</td>
+                    <td>@item.Email</td>
+                    <td>@item.ContactNumber</td>
+                    <td>@item.Notes</td>
+                    <td>@item.DateOfBirth</td>
+                    <td>
+                        <a href="/additem/@item.Id" class="btn btn-warning">Edit</a>
+                        <button class="btn btn-sm btn-danger" @onclick="()=>DeleteItem(item)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+<a href="/additem" class="btn btn-primary">Add New Member</a>
+<button class="btn btn-danger" @onclick="TruncateClientsTable">Truncate Table</button>
 
-    <label>Last Name:</label>
-    <input type="text" @bind="newClient.LastName" />
-
-    <label>Email Address:</label>
-    <input type="email" @bind="newClient.Email" />
-
-    <label>Contact Number:</label>
-    <input type="tel" @bind="newClient.ContactNumber" />
-
-    <label>Notes:</label>
-    <input type="text" @bind="newClient.Notes" />
-
-    <label>Date of Birth:</label>
-    <input type="date" @bind="newClient.DateOfBirth" />
-
-    <button @onclick="SaveClient">Save</button>
-    <button @onclick="DeleteClient">Delete</button>
-</div>
-
-<!-- UI elements for managing clients -->
 @code {
-    private List<GymManagement.Models.Client> clients;
-    private string searchText;
-    private GymManagement.Models.Client newClient = new GymManagement.Models.Client();
+    private List<Client> clients = new List<Client>();
+    private List<Client> filteredClients = new List<Client>();
+    private string errormessage = string.Empty;
+    private string searchText = string.Empty;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        clients = ClientService.GetAllClients();
+        try
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("message", out var message))
+            {
+                errormessage = message;
+            }
+            clients = await ClientService.GetItemsAsync();
+            filteredClients = clients; // Initialize filteredClients with all clients
+        }
+        catch (Exception ex)
+        {
+            errormessage = ex.Message;
+        }
     }
 
     private void SearchClients()
     {
-        if (!string.IsNullOrEmpty(searchText))
+        try
         {
-            clients = ClientService.SearchClients(searchText);
+            if (clients == null || !clients.Any())
+            {
+                errormessage = "No clients available to search.";
+                filteredClients = new List<Client>();
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                filteredClients = clients.Where(c =>
+                    (c.FirstName != null && c.FirstName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (c.LastName != null && c.LastName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (c.Email != null && c.Email.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (c.ContactNumber != null && c.ContactNumber.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (c.Notes != null && c.Notes.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (c.DateOfBirth != null && c.DateOfBirth.ToString("yyyy-MM-dd").Contains(searchText))
+                ).ToList();
+
+                if (!filteredClients.Any())
+                {
+                    errormessage = "No clients found matching the search criteria.";
+                }
+                else
+                {
+                    errormessage = string.Empty;
+                }
+            }
+            else
+            {
+                errormessage = string.Empty;
+                filteredClients = clients; // Reset to all clients if search is empty
+            }
         }
-        else
+        catch (Exception ex)
         {
-            clients = ClientService.GetAllClients();
+            errormessage = ex.Message;
         }
     }
 
-    private void SaveClient()
+    private async Task DeleteItem(Client item)
     {
-        if (IsValidClient(newClient))
+        try
         {
-            ClientService.SaveClient(newClient);
-            newClient = new GymManagement.Models.Client(); // Reset form
-            clients = ClientService.GetAllClients(); // Refresh client list
+            await ClientService.RemoveClient(item);
+            var message = $"Client is deleted with ID {item.Id}";
+            Navigation.NavigateTo($"/manage-clients?message={Uri.EscapeDataString(message)}", true); // Force reload the page with message
+        }
+        catch (Exception ex)
+        {
+            errormessage = ex.Message;
         }
     }
 
-    private void DeleteClient()
+    private async Task TruncateClientsTable()
     {
-        if (newClient.Id != 0)
+        try
         {
-            ClientService.DeleteClient(newClient.Id);
-            newClient = new GymManagement.Models.Client(); // Reset form
-            clients = ClientService.GetAllClients(); // Refresh client list
+            await ClientService.TruncateClientsTableAsync();
+            errormessage = "Clients table truncated successfully.";
+            Navigation.NavigateTo("/manage-clients", true); // Force reload the page
         }
-    }
-
-    private bool IsValidClient(GymManagement.Models.Client client)
-    {
-        // Add validation logic here (e.g., email and contact number validation)
-        return !string.IsNullOrEmpty(client.FirstName) &&
-               !string.IsNullOrEmpty(client.LastName) &&
-               !string.IsNullOrEmpty(client.Email) &&
-               !string.IsNullOrEmpty(client.ContactNumber);
+        catch (Exception ex)
+        {
+            errormessage = ex.Message;
+        }
     }
 }

@@ -1,0 +1,16 @@
+﻿@page "/manage-bookings"
+@inject GymManagement.Services.BookingService BookingService
+
+<PageTitle>Manage Bookings</PageTitle>
+
+<h3>Manage Bookings and Reservations</h3>
+
+<!-- UI elements for managing bookings -->
+@code {
+    private List<GymManagement.Models.Booking> bookings;
+
+    protected override void OnInitialized()
+    {
+        bookings = BookingService.GetAllBookings();
+    }
+}

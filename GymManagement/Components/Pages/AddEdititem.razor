@@ -1,0 +1,109 @@
+﻿@page "/additem/{id:int?}"
+@using GymManagement.Data;
+@inject NavigationManager Navigation
+@inject Data.ClientService Database
+
+<link href="./css/gymManagement.css" rel="stylesheet" />
+
+<h2>Add Members:</h2>
+<h3>@(Id.HasValue ? "Edit Item" : "Add Item")</h3>
+@if (!string.IsNullOrEmpty(errormessage))
+{
+    <div class="alert alert-danger">@errormessage</div>
+}
+<EditForm Model="@item" OnValidSubmit="SaveItem">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="flex-container">
+        <div class="flex-item">
+            <label>First Name:</label>
+            <input type="text" @bind="item.FirstName" required class="form-input" />
+
+            <label>Last Name:</label>
+            <input type="text" @bind="item.LastName" required class="form-input" />
+
+            <label>Email Address:</label>
+            <input type="email" @bind="item.Email" required class="form-input" />
+
+            <label>Contact Number:</label>
+            <input type="tel" @bind="item.ContactNumber" required class="form-input" />
+
+            <label>Notes:</label>
+            <input type="text" @bind="item.Notes" class="form-input" />
+
+            <label>Date of Birth:</label>
+            <input type="date" @bind="item.DateOfBirth" required class="form-input" />
+        </div>
+    </div>
+    <div class="flex-container">
+        <div class="flex-row align-items-center">
+            <button type="submit" class="form-button">Save</button>
+        </div>
+    </div>
+</EditForm>
+<div class="flex-row align-items-center"><p>@message</p></div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+    private Client item = new Client();
+    private string errormessage = string.Empty;
+    private string message = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (Id.HasValue)
+            {
+                item = await Database.GetItemAsync(Id.Value);
+            }
+        }
+        catch (Exception ex)
+        {
+            errormessage = ex.Message;
+        }
+    }
+
+    private async Task SaveItem()
+    {
+        try
+        {
+            if (!ValidateClient(item))
+            {
+                return;
+            }
+
+            if (!Id.HasValue)
+            {
+                var clients = await Database.GetItemsAsync();
+                item.Id = clients.Any() ? clients.Max(c => c.Id) + 1 : 1;
+            }
+
+            int clientId = await Database.SaveClient(item);
+            message = $"Client saved successfully with client id of : {clientId}";
+            Navigation.NavigateTo("/manage-clients", true);
+        }
+        catch (Exception ex)
+        {
+            errormessage = ex.Message;
+        }
+    }
+
+    private bool ValidateClient(Client client)
+    {
+        if (client.DateOfBirth <= new DateTime(1900, 1, 1))
+        {
+            errormessage = "Date of Birth must be greater than 1/1/1900.";
+            return false;
+        }
+
+        if (client.ContactNumber == null || client.ContactNumber.Length != 9 || !client.ContactNumber.All(char.IsDigit))
+        {
+            errormessage = "Contact Number must be exactly 9 digits.";
+            return false;
+        }
+
+        return true;
+    }
+}

@@ -1,0 +1,16 @@
+﻿@page "/manage-equipments"
+@inject GymManagement.Services.EquipmentService EquipmentService
+
+<PageTitle>Manage Equipments</PageTitle>
+
+<h3>Manage Equipments</h3>
+
+<!-- UI elements for managing equipments -->
+@code {
+    private List<GymManagement.Models.Equipment> equipments;
+
+    protected override void OnInitialized()
+    {
+        equipments = EquipmentService.GetAllEquipments();
+    }
+}

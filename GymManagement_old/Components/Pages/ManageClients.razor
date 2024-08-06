@@ -1,0 +1,89 @@
+﻿@page "/manage-clients"
+@inject GymManagement.Services.ClientService ClientService
+
+<PageTitle>Manage Clients</PageTitle>
+
+<h3>Manage Clients</h3>
+
+<!-- Search Section -->
+<div>
+    <input type="text" @bind="searchText" placeholder="Search clients..." />
+    <button @onclick="SearchClients">Search</button>
+</div>
+
+<!-- Client Form -->
+<div>
+    <label>First Name:</label>
+    <input type="text" @bind="newClient.FirstName" />
+
+    <label>Last Name:</label>
+    <input type="text" @bind="newClient.LastName" />
+
+    <label>Email Address:</label>
+    <input type="email" @bind="newClient.Email" />
+
+    <label>Contact Number:</label>
+    <input type="tel" @bind="newClient.ContactNumber" />
+
+    <label>Notes:</label>
+    <input type="text" @bind="newClient.Notes" />
+
+    <label>Date of Birth:</label>
+    <input type="date" @bind="newClient.DateOfBirth" />
+
+    <button @onclick="SaveClient">Save</button>
+    <button @onclick="DeleteClient">Delete</button>
+</div>
+
+<!-- UI elements for managing clients -->
+@code {
+    private List<GymManagement.Models.Client> clients;
+    private string searchText;
+    private GymManagement.Models.Client newClient = new GymManagement.Models.Client();
+
+    protected override void OnInitialized()
+    {
+        clients = ClientService.GetAllClients();
+    }
+
+    private void SearchClients()
+    {
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            clients = ClientService.SearchClients(searchText);
+        }
+        else
+        {
+            clients = ClientService.GetAllClients();
+        }
+    }
+
+    private void SaveClient()
+    {
+        if (IsValidClient(newClient))
+        {
+            ClientService.SaveClient(newClient);
+            newClient = new GymManagement.Models.Client(); // Reset form
+            clients = ClientService.GetAllClients(); // Refresh client list
+        }
+    }
+
+    private void DeleteClient()
+    {
+        if (newClient.Id != 0)
+        {
+            ClientService.DeleteClient(newClient.Id);
+            newClient = new GymManagement.Models.Client(); // Reset form
+            clients = ClientService.GetAllClients(); // Refresh client list
+        }
+    }
+
+    private bool IsValidClient(GymManagement.Models.Client client)
+    {
+        // Add validation logic here (e.g., email and contact number validation)
+        return !string.IsNullOrEmpty(client.FirstName) &&
+               !string.IsNullOrEmpty(client.LastName) &&
+               !string.IsNullOrEmpty(client.Email) &&
+               !string.IsNullOrEmpty(client.ContactNumber);
+    }
+}
